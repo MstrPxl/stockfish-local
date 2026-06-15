@@ -36,6 +36,9 @@ so you get real native performance — not a slower WebAssembly build. Everythin
   whatever machine is running the program, read fresh on each load.
 - 📥 **Import** a position (FEN) or a whole game (PGN file or paste), with a move
   navigator to step through and analyze each position.
+- 🧪 **Headless batch analyzer (CLI)** — fully pre-analyze whole games to a fixed
+  limit with a precise **completion contract**, then loop thousands of games and
+  **project total runtime** for comparing your machine against better/cloud specs.
 
 ---
 
@@ -177,6 +180,70 @@ shows the real end-to-end experience.
 
 ---
 
+## Batch game analysis (headless CLI)
+
+For analyzing games at scale (and benchmarking hardware), there's a headless
+analyzer that **fully pre-computes** a game with Stockfish — every position is
+searched once to a fixed limit, so reviewing the game afterwards needs **zero**
+further engine computation.
+
+### Definition of completion (per game)
+
+> A game's analysis is **COMPLETE** when every position — the initial position
+> **plus** the position after each ply (**N+1** positions for an N-ply game) —
+> has been searched to the fixed limit and the engine has returned `bestmove`
+> for each. Formally `positionsAnalyzed === plyCount + 1`, and each position
+> carries a stored eval, best move, and PV.
+
+This gives a clear, machine-checkable signal for "this game is done — move to the
+next," which is what makes sequencing thousands of games reliable.
+
+### Analyze one game
+
+```bash
+node analyze-game.mjs samples/opera-game.pgn --depth 18 --threads 3 --hash 256
+# or: npm run analyze -- samples/opera-game.pgn --depth 18
+```
+
+Prints live progress, then a completion report: positions analyzed, wall-clock vs
+engine time, nodes, nps, and per-side ACPL (average centipawn loss) with
+blunder/mistake/inaccuracy counts. Add `--out result.json` for the full
+per-position + per-move data (evals, best moves, PVs, CP loss, classification).
+
+### Analyze many games + project 1000
+
+```bash
+node analyze-batch.mjs games.pgn --depth 18 --threads 3 --max 50 \
+  --out summary.json --csv per-game.csv
+# or: npm run analyze:batch -- games.pgn --depth 18
+```
+
+Reuses one engine across all games (clearing the table between games so each is
+independent), reports per-game completion + timing, and finishes with totals and
+a **projection to 1000 games** plus the machine's specs — so you can run the same
+command on different hardware and compare directly.
+
+### Search-limit options (same for both CLIs)
+
+| Flag           | Meaning                                              |
+| -------------- | ---------------------------------------------------- |
+| `--depth N`    | Fixed depth per position (default 18).               |
+| `--nodes N`    | Fixed nodes per position. **Best for pure hardware time-scaling** (identical work everywhere; time differs only by speed). |
+| `--movetime MS`| Fixed time per position (variable depth).            |
+| `--threads N`  | Engine threads (default: logical cores − 1).         |
+| `--hash MB`    | Transposition table size (default 256).              |
+| `--multipv N`  | Candidate lines per position (default 1).            |
+
+For comparing machines, keep the limit fixed: **`--depth`** keeps the analysis
+quality identical (same evals/best moves) so only time varies, and **`--nodes`**
+makes the work itself identical for the cleanest speed ratio.
+
+> **Note on captured material / CP loss:** per-move centipawn loss uses the
+> negamax identity `loss = max(0, score_before + score_after)` (both in
+> side-to-move perspective), capped at 1000 cp; forced mates collapse to a large
+> sentinel. Good enough for weakness profiling; tune thresholds in
+> `lib/game-analyzer.mjs`.
+
 ## How it works
 
 ```
@@ -200,14 +267,20 @@ app.js  ──── WebSocket (UCI) ───────► ws bridge ── s
 ## Project layout
 
 ```
-server.js                Express static server + WebSocket→Stockfish UCI bridge + /api/engine
+server.js                Web server: static UI + WebSocket→Stockfish bridge + /api/engine
+analyze-game.mjs         CLI: analyze ONE game to a fixed limit (completion + timing)
+analyze-batch.mjs        CLI: analyze MANY games; per-game timing + 1000-game projection
 package.json             Scripts and dependencies (express, ws, chess.js)
+lib/
+  stockfish-path.mjs     Shared: locate the native Stockfish binary
+  game-analyzer.mjs      Persistent engine + analyzeGame() with the completion contract
 public/
   index.html             UI markup
   style.css              Styling (dark theme)
   app.js                 Board, drag, eval bar, material, SAN, timing, history, WS client
   vendor/chess.js        Vendored chess.js (legal moves / SAN / PGN), offline
   pieces/<set>/*.svg     Vendored SVG piece sets (cburnett, merida, alpha, …)
+samples/*.pgn            Example games for the CLI
 ```
 
 ## Notes & limitations

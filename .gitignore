@@ -1,3 +1,7 @@
 node_modules/
 npm-debug.log*
 .env
+
+# Generated analysis outputs
+results/
+*.result.json
