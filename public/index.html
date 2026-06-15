@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stockfish Bench</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">♞</span>
+        <div>
+          <h1>Stockfish Bench</h1>
+          <p class="tagline">Analyze a position locally and measure how long it takes.</p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div id="engineInfo" class="engine-info">
+          <span class="dot" id="engineDot"></span>
+          <span id="engineText">Connecting…</span>
+        </div>
+        <button id="settingsToggle" class="cog-btn" title="Show/hide analysis settings"
+          aria-label="Toggle analysis settings" aria-pressed="false">⚙</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <!-- LEFT: board + position -->
+      <section class="panel board-panel">
+        <div class="board-area">
+          <div id="material" class="material" title="Captured pieces &amp; material advantage">
+            <div class="mat-side mat-top" id="matTop"></div>
+            <div class="mat-diff" id="matDiff"></div>
+            <div class="mat-side mat-bottom" id="matBottom"></div>
+          </div>
+          <div id="evalBar" class="evalbar" title="Evaluation (White's perspective)">
+            <div id="evalFill" class="evalbar-fill"></div>
+            <span id="evalBarText" class="evalbar-text on-white">0.0</span>
+          </div>
+          <div id="board" class="board" aria-label="Chess board"></div>
+        </div>
+
+        <div class="board-tools">
+          <button id="resetBtn" class="btn-mini">↺ Start</button>
+          <button id="undoBtn" class="btn-mini" disabled>↶ Undo</button>
+          <button id="flipBtn" class="btn-mini">⇅ Flip</button>
+          <button id="copyFenBtn" class="btn-mini">⧉ Copy FEN</button>
+          <span class="move-hint">Click or drag to move</span>
+        </div>
+
+        <div class="appearance-bar">
+          <label class="appearance-field">
+            <span>Board</span>
+            <select id="boardTheme">
+              <option value="slate">Slate</option>
+              <option value="green">Green</option>
+              <option value="brown">Brown</option>
+              <option value="blue">Blue</option>
+              <option value="gray">Gray</option>
+              <option value="wood">Wood</option>
+              <option value="purple">Purple</option>
+              <option value="ice">Ice</option>
+              <option value="tournament">Tournament</option>
+            </select>
+          </label>
+          <label class="appearance-field">
+            <span>Pieces</span>
+            <select id="pieceSet">
+              <option value="cburnett">Cburnett (classic)</option>
+              <option value="merida">Merida</option>
+              <option value="alpha">Alpha</option>
+              <option value="staunty">Staunty</option>
+              <option value="maestro">Maestro</option>
+              <option value="gioco">Gioco</option>
+              <option value="unicode">Unicode (text)</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="pgnNav" class="pgn-nav hidden">
+          <div class="pgn-game" id="pgnGame">Imported game</div>
+          <div class="pgn-controls">
+            <button id="firstBtn" class="btn-mini" title="Start (Home)">⏮</button>
+            <button id="prevBtn" class="btn-mini" title="Previous (←)">◀</button>
+            <span id="plyLabel" class="ply-label">0 / 0</span>
+            <button id="nextBtn" class="btn-mini" title="Next (→)">▶</button>
+            <button id="lastBtn" class="btn-mini" title="End (End)">⏭</button>
+            <button id="closePgnBtn" class="btn-mini" title="Close game">✕</button>
+          </div>
+          <div id="moveList" class="move-list"></div>
+        </div>
+
+        <div class="field">
+          <label for="fen">Position (FEN)</label>
+          <textarea id="fen" rows="2" spellcheck="false">rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1</textarea>
+        </div>
+
+        <div class="row">
+          <div class="field grow">
+            <label for="preset">Preset positions</label>
+            <select id="preset">
+              <option value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">Start position</option>
+              <option value="r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1">Kiwipete (tactical, busy)</option>
+              <option value="r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4">Italian opening</option>
+              <option value="8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1">Rook endgame</option>
+              <option value="6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1">Simple R vs nothing</option>
+              <option value="r2q1rk1/pp2bppp/2n1pn2/2pp4/3P1B2/2PBPN2/PP1N1PPP/R2Q1RK1 w - - 0 1">Closed middlegame</option>
+              <option value="2r3k1/1q1nbppp/r3p3/3pP3/p1pP4/P1Q2N2/1PRN1PPP/2R3K1 b - - 0 1">Heavy pieces endgame</option>
+              <option value="8/8/8/8/8/6k1/6p1/6K1 w - - 0 1">K+P vs K (tablebase)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>To move</label>
+            <div id="sideToMove" class="pill">White</div>
+          </div>
+        </div>
+
+        <details class="import-details">
+          <summary>⇩ Import a position (FEN) or a full game (PGN)</summary>
+          <div class="import-body">
+            <textarea id="importInput" rows="4" spellcheck="false"
+              placeholder="Paste a FEN, or a full PGN (with [Event …] headers and moves)…"></textarea>
+            <div class="import-actions">
+              <label class="file-btn">
+                📁 Choose .pgn / .fen file
+                <input id="importFile" type="file" accept=".pgn,.fen,.txt,text/plain" hidden />
+              </label>
+              <button id="importBtn" class="btn-mini">Load</button>
+              <span id="importMsg" class="import-msg"></span>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- MIDDLE: controls -->
+      <section class="panel controls-panel">
+        <label class="toggle">
+          <input type="checkbox" id="autoAnalyze" checked />
+          <span><strong>⚡ Auto-analyze</strong> — re-run on every move &amp; on load</span>
+        </label>
+
+        <h2>Analysis settings</h2>
+
+        <div class="field">
+          <label for="limit">Stop condition</label>
+          <select id="limit">
+            <option value="depth">Fixed depth</option>
+            <option value="movetime">Fixed time (ms)</option>
+            <option value="nodes">Fixed nodes</option>
+            <option value="infinite">Infinite (until you press Stop)</option>
+          </select>
+        </div>
+
+        <div class="field limit-field" data-for="depth">
+          <label for="depth">Depth <span class="hint">(1–99)</span></label>
+          <input id="depth" type="number" min="1" max="99" value="18" />
+        </div>
+        <div class="field limit-field hidden" data-for="movetime">
+          <label for="movetime">Time (ms)</label>
+          <input id="movetime" type="number" min="10" max="3600000" value="5000" />
+        </div>
+        <div class="field limit-field hidden" data-for="nodes">
+          <label for="nodes">Nodes</label>
+          <input id="nodes" type="number" min="1000" max="2000000000" value="10000000" />
+        </div>
+
+        <hr />
+
+        <div class="row">
+          <div class="field grow">
+            <label for="threads">Threads <span class="hint" id="threadsHint"></span></label>
+            <input id="threads" type="number" min="1" max="1024" value="1" />
+          </div>
+          <div class="field grow">
+            <label for="hash">Hash (MB)</label>
+            <input id="hash" type="number" min="1" max="65536" value="128" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="startBtn" class="btn primary">▶ Analyze now</button>
+          <button id="stopBtn" class="btn" disabled>■ Stop</button>
+        </div>
+
+        <hr />
+
+        <div class="bench-row">
+          <button id="benchBtn" class="btn-mini">⚡ Run engine bench</button>
+          <span id="benchResult" class="bench-result">Stockfish's standard speed self-test</span>
+        </div>
+      </section>
+
+      <!-- RIGHT: results -->
+      <section class="panel results-panel">
+        <div class="timer-block">
+          <div class="timer" id="timer">0.000</div>
+          <div class="timer-label" id="timerLabel">seconds elapsed</div>
+        </div>
+
+        <div class="top-moves-head">
+          <span class="tm-title">Top moves</span>
+          <label class="tm-count">
+            show
+            <input id="multipv" type="number" min="1" max="10" value="5" />
+            <span class="tm-count-hint">at a time</span>
+          </label>
+        </div>
+        <div id="topMoves" class="top-moves">
+          <div class="tm-empty">No analysis yet.</div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat"><span class="k">Evaluation</span><span class="v" id="evalVal">—</span></div>
+          <div class="stat"><span class="k">Depth reached</span><span class="v" id="depthVal">—</span></div>
+          <div class="stat"><span class="k">Nodes</span><span class="v" id="nodesVal">—</span></div>
+          <div class="stat"><span class="k">Speed (nps)</span><span class="v" id="npsVal">—</span></div>
+          <div class="stat"><span class="k">Engine time</span><span class="v" id="engTimeVal">—</span></div>
+        </div>
+
+        <details class="log-details">
+          <summary>Raw engine log</summary>
+          <pre id="log" class="log"></pre>
+        </details>
+      </section>
+    </main>
+
+    <div class="history-wrap">
+      <section class="panel history-panel">
+        <div class="history-head">
+          <h2>Run history</h2>
+          <div class="history-actions">
+            <button id="exportCsvBtn" class="btn-mini">⭳ Export CSV</button>
+            <button id="clearHistoryBtn" class="btn-mini">✕ Clear</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Position</th><th>Limit</th><th>Thr</th><th>Hash</th>
+                <th>Wall&nbsp;(s)</th><th>Engine&nbsp;(s)</th><th>Depth</th>
+                <th>Nodes</th><th>NPS</th><th>Best</th><th>Eval</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr class="empty-row">
+                <td colspan="12">No runs yet — analyze a position to log one.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

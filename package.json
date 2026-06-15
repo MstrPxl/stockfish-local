@@ -1,0 +1,18 @@
+{
+  "name": "stockfish-bench",
+  "version": "1.0.0",
+  "description": "Local web tool to benchmark Stockfish analysis of a chess position (depth/time, threads, hash) and measure how long it takes.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  }
+}
